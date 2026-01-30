@@ -1,0 +1,124 @@
+70000000 // MOVI r0 0 // 초기화
+70401121 // MOVI r1, #0x01121     ; A 행렬 row0 = [1, 2, 1, 1]
+70801110 // MOVI r2, #0x01110     ; A 행렬 row1 = [0, 1, 1, 1]
+70C01101 // MOVI r3, #0x01101     ; A 행렬 row2 = [1, 0, 1, 1]
+71001111 // MOVI r4, #0x01111     ; A 행렬 row3 = [1, 1, 1, 1]
+
+71401101 // MOVI r5, #0x01101     ; B 행렬 row0 = [1, 0, 1, 1]
+71800111 // MOVI r6, #0x00111     ; B 행렬 row1 = [1, 1, 1, 0]
+71C01011 // MOVI r7, #0x01011     ; B 행렬 row2 = [1, 1, 0, 1]
+72001112 // MOVI r8, #0x01112     ; B 행렬 row3 = [2, 1, 1, 1]
+
+98400000 // ST   r1, r0, #0    ; A row0 -> M[0]
+98800004 // ST   r2, r0, #4    ; A row1 -> M[4]
+98C00008 // ST   r3, r0, #8    ; A row2 -> M[8]
+9900000C // ST   r4, r0, #12   ; A row3 -> M[12]
+99400010 // ST   r5, r0, #16   ; B row0 -> M[16]
+99800014 // ST   r6, r0, #20   ; B row1 -> M[20]
+99C00018 // ST   r7, r0, #24   ; B row2 -> M[24]
+9A00001C // ST   r8, r0, #28   ; B row3 -> M[28]
+
+// Wait for Store to complete (Write Buffer/Memory latency)
+F8000000 // NOP
+
+// [수정] CON 설정 후 바로 LDIP 시작 (NOP 제거 - IP 타이밍 종속적)
+// 4x4 모드 설정 (Start=1, Mode=0) -> 0x100 (Binary 100) -> 4
+77C00004  // MOVI r31, #4       ; CON = 0b100 (4x4 mode, Start=1)
+B8000000 // LDIP ipin, #0        ; A row0 (M[0]) - Captured at Cycle 0
+B8000004 // LDIP ipin, #4        ; A row1 (M[4]) - Captured at Cycle 1
+B8000008 // LDIP ipin, #8        ; A row2 (M[8])
+B800000C // LDIP ipin, #12       ; A row3 (M[12])
+B8000010 // LDIP ipin, #16       ; B row0 (M[16])
+B8000014 // LDIP ipin, #20       ; B row1 (M[20])
+B8000018 // LDIP ipin, #24       ; B row2 (M[24])
+B800001C // LDIP ipin, #28       ; B row3 (M[28])
+
+F8000000 // NOP (Wait for compute)
+F8000000 // NOP
+F8000000 // NOP
+F8000000 // NOP
+F8000000 // NOP
+F8000000 // NOP
+
+
+// 결과 확인 (STIP)
+// MOVI(설정) -> NOP -> STIP(읽기) -> NOP 패턴으로 안정성 확보
+// CUSTOM_IP 로직: CON[8:4]에 출력 선택 신호 (C00=00, C01=01... C33=0F)
+// CON[8]은 Output Mux Enable 비트로 보임 (CUSTOM_IP.v 187, 190라인 참조: out_sel[4])
+// 따라서 Cxx 선택 시 0x100 (Enable bit) + Index 값을 더해야 함.
+// 예: C00 -> Index 0x00 -> Total 0x100
+//     C33 -> Index 0x0F -> Total 0x10F
+// 주의: 원본 코드의 0x1F0 등은 Index가 너무 큼. 4x4 행렬은 Index 0~15(0x0~0xF)까지임.
+// CUSTOM_IP.v의 48~51라인 Mapping: C[0][0]...C[3][3] 순차적임.
+// out_sel[3:2] = Row, out_sel[1:0] = Col
+// C00: Row=0(00), Col=0(00) -> 0x00 -> +0x100 = 0x100
+// C01: Row=0(00), Col=1(01) -> 0x01 -> +0x100 = 0x101
+// ...
+// C10: Row=1(01), Col=0(00) -> 0x04 -> +0x100 = 0x104
+// ...
+// C33: Row=3(11), Col=3(11) -> 0x0F -> +0x100 = 0x10F
+
+77C00100 // MOVI r31, #0x100 (Select C00)
+F8000000 // NOP
+C0000020 // STIP r0, #64  ; C[00]
+
+77C00110 // MOVI r31, #0x101 (Select C01)
+F8000000 // NOP
+C0000024 // STIP r0, #68  ; C[01]
+F8000000 // NOP
+
+77C00120 // MOVI r31, #0x102 (Select C02)
+F8000000 // NOP
+C0000028 // STIP r0, #72  ; C[02]
+
+77C00130 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C000002C // STIP r0, #76  ; C[03]
+
+77C00140 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000030 // STIP r0, #76  ; C[03]
+
+77C00150 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000034 // STIP r0, #76  ; C[03]
+
+77C00160 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000038 // STIP r0, #76  ; C[03]
+
+77C00170 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C000003C // STIP r0, #76  ; C[03]
+
+77C00180 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000040 // STIP r0, #76  ; C[03]
+
+77C00190 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000044 // STIP r0, #76  ; C[03]
+
+77C001A0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000048 // STIP r0, #76  ; C[03]
+
+77C001B0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C000004C // STIP r0, #76  ; C[03]
+
+77C001C0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000050 // STIP r0, #76  ; C[03]
+
+77C001D0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000054 // STIP r0, #76  ; C[03]
+
+77C001E0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C0000058 // STIP r0, #76  ; C[03]
+
+77C001F0 // MOVI r31, #0x103 (Select C03)
+F8000000 // NOP
+C000005C // STIP r0, #76  ; C[03]
