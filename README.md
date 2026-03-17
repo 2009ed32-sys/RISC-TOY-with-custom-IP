@@ -3,9 +3,9 @@
 A custom 32-bit RISC processor implemented in Verilog, featuring a 5-stage pipeline and an integrated 4×4 systolic MAC array accelerator IP for matrix multiplication.
 
 > **Team 14**
-> - 2020104194 · Nam InSu
+> - 2020104194 · Nam Insu
 > - 2021104344 · Ju Hwansu
-> - 2023104146 · Gu miNju
+> - 2023104146 · Gu Minju
 
 ---
 
